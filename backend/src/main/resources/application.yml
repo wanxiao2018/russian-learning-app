@@ -1,0 +1,25 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/russian_learning?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8
+    username: ${DB_USERNAME:russian}
+    password: ${DB_PASSWORD:russian123}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+
+jwt:
+  secret: ${JWT_SECRET:russian-learning-app-super-secret-key-that-is-at-least-32-bytes-long-for-hs256}
+  expiration: 86400000
+
+app:
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:5173}
