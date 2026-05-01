@@ -258,13 +258,30 @@ export default function FlashCard() {
                 <div className="fc-card-stress">{card.stress}</div>
               )}
             </div>
-            {/* Back: chinese + pos */}
+            {/* Back: chinese + pos + sentences */}
             <div className="fc-card-back">
               <div className="fc-card-chinese">{card.chinese}</div>
               {card.pos && (
                 <span className={`fc-card-pos ${getPOSClass(card.pos)}`}>
                   {translatePOS(card.pos)}
                 </span>
+              )}
+              {card.sentences && card.sentences.length > 0 && (
+                <div className="fc-card-sentences">
+                  {card.sentences.slice(0, 2).map((s, i) => (
+                    <div key={i} className="fc-sentence">
+                      <button
+                        className="fc-sentence-tts"
+                        onClick={(e) => { e.stopPropagation(); speakRussian(s.ru); }}
+                        title="播放例句"
+                      >🔊</button>
+                      <div className="fc-sentence-text">
+                        <div className="fc-sentence-ru">{s.ru}</div>
+                        <div className="fc-sentence-cn">{s.cn}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
               {card.level && <span className="fc-card-level-back">{card.level}</span>}
             </div>

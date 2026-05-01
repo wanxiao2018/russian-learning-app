@@ -7,9 +7,11 @@ import com.russian.learn.dto.VocabResponse;
 import com.russian.learn.entity.DailyStats;
 import com.russian.learn.entity.UserVocab;
 import com.russian.learn.entity.Vocab;
+import com.russian.learn.entity.VocabEpisode;
 import com.russian.learn.repository.DailyStatsRepository;
 import com.russian.learn.repository.UserVocabRepository;
 import com.russian.learn.repository.VocabRepository;
+import com.russian.learn.repository.VocabEpisodeRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,15 +28,18 @@ public class LearningService {
     private final VocabRepository vocabRepository;
     private final DailyStatsRepository dailyStatsRepository;
     private final FSRSService fsrsService;
+    private final VocabEpisodeRepository vocabEpisodeRepository;
 
     public LearningService(UserVocabRepository userVocabRepository,
                            VocabRepository vocabRepository,
                            DailyStatsRepository dailyStatsRepository,
-                           FSRSService fsrsService) {
+                           FSRSService fsrsService,
+                           VocabEpisodeRepository vocabEpisodeRepository) {
         this.userVocabRepository = userVocabRepository;
         this.vocabRepository = vocabRepository;
         this.dailyStatsRepository = dailyStatsRepository;
         this.fsrsService = fsrsService;
+        this.vocabEpisodeRepository = vocabEpisodeRepository;
     }
 
     public List<Map<String, Object>> getDueCards(Long userId) {
@@ -59,6 +64,7 @@ public class LearningService {
             card.put("retrievability", uv.getRetrievability());
             card.put("dueDate", uv.getDueDate());
             card.put("reviewCount", uv.getReviewCount());
+            card.put("sentences", getExampleSentences(vocab.getId()));
             return card;
         }).filter(Objects::nonNull).collect(Collectors.toList());
     }
@@ -181,9 +187,24 @@ public class LearningService {
                     word.put("pos", v.getPos());
                     word.put("level", v.getLevel());
                     word.put("frequency", v.getFrequency());
+                    word.put("sentences", getExampleSentences(v.getId()));
                     return word;
                 })
                 .collect(Collectors.toList());
+    }
+
+    private List<Map<String, String>> getExampleSentences(Long vocabId) {
+        List<VocabEpisode> vocabEpisodes = vocabEpisodeRepository.findByVocabId(vocabId);
+        List<Map<String, String>> sentences = new ArrayList<>();
+        for (VocabEpisode ve : vocabEpisodes) {
+            if (ve.getContextSentence() != null && !ve.getContextSentence().isEmpty()) {
+                Map<String, String> s = new HashMap<>();
+                s.put("ru", ve.getContextSentence());
+                s.put("cn", ve.getContextTranslation() != null ? ve.getContextTranslation() : "");
+                sentences.add(s);
+            }
+        }
+        return sentences;
     }
 
     private void updateDailyStats(Long userId, boolean isNew, boolean isCorrect) {

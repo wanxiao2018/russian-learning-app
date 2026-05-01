@@ -1482,7 +1482,7 @@ a:hover {
 .fc-card {
   position: relative;
   width: 100%;
-  min-height: 360px;
+  min-height: 420px;
   transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   transform-style: preserve-3d;
 }
@@ -1588,6 +1588,61 @@ a:hover {
   padding: 0.25rem 0.75rem;
   border-radius: 20px;
   font-size: 0.85rem;
+}
+
+/* Example sentences */
+.fc-card-sentences {
+  width: 100%;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.fc-sentence {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.fc-sentence:last-child {
+  margin-bottom: 0;
+}
+
+.fc-sentence-tts {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.2s, transform 0.2s;
+  padding: 0.15rem;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.fc-sentence-tts:hover {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+.fc-sentence-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.fc-sentence-ru {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.fc-sentence-cn {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.3;
+  margin-top: 0.15rem;
 }
 
 /* Rating buttons */
