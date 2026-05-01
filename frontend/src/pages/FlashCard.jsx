@@ -4,7 +4,7 @@ import client from '../api/client';
 import { speakRussian } from '../utils/tts';
 import { translatePOS, getPOSClass } from '../utils/pos';
 
-const LEVELS = ['A1', 'A2', 'A2-B1', 'B1', 'B1-B2', 'B2', 'B2-C1'];
+const LEVELS = ['A1', 'A2-B1', 'B1-B2', 'B2-C1'];
 
 export default function FlashCard() {
   const navigate = useNavigate();

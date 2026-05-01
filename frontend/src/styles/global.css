@@ -1474,7 +1474,7 @@ a:hover {
 
 .fc-card-wrapper {
   width: 100%;
-  max-width: 420px;
+  max-width: 500px;
   perspective: 1000px;
   cursor: pointer;
 }
@@ -1482,7 +1482,7 @@ a:hover {
 .fc-card {
   position: relative;
   width: 100%;
-  min-height: 280px;
+  min-height: 360px;
   transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   transform-style: preserve-3d;
 }
@@ -1561,7 +1561,7 @@ a:hover {
 
 /* Card content */
 .fc-card-word {
-  font-size: 2.5rem;
+  font-size: 3rem;
   font-weight: 700;
   text-align: center;
   color: var(--text-primary);
@@ -1576,7 +1576,7 @@ a:hover {
 }
 
 .fc-card-chinese {
-  font-size: 1.8rem;
+  font-size: 2.2rem;
   font-weight: 600;
   color: var(--accent);
   text-align: center;
@@ -1596,7 +1596,7 @@ a:hover {
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
   width: 100%;
-  max-width: 420px;
+  max-width: 500px;
   margin-bottom: 1rem;
 }
 
