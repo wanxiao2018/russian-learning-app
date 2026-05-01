@@ -33,7 +33,7 @@ export default function FlashCard() {
 
         // If no due cards, get new words
         if (data.length === 0) {
-          const newRes = await client.get('/learning/new-words?count=20');
+          const newRes = await client.get('/learning/new-words?count=50');
           data = Array.isArray(newRes.data) ? newRes.data : [];
         }
 
