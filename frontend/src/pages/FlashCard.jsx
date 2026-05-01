@@ -4,6 +4,8 @@ import client from '../api/client';
 import { speakRussian } from '../utils/tts';
 import { translatePOS, getPOSClass } from '../utils/pos';
 
+const LEVELS = ['A1', 'A2', 'A2-B1', 'B1', 'B1-B2', 'B2', 'B2-C1'];
+
 export default function FlashCard() {
   const navigate = useNavigate();
   const [cards, setCards] = useState([]);
@@ -11,34 +13,41 @@ export default function FlashCard() {
   const [flipped, setFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
   const [done, setDone] = useState(false);
-  const [mode, setMode] = useState(null);
-  const [dragX, setDragX] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const startXRef = useRef(0);
-  const cardRef = useRef(null);
+  const [selectedLevel, setSelectedLevel] = useState(null);
+  const [order, setOrder] = useState('sequential'); // 'sequential' | 'shuffle'
+  const [correctCount, setCorrectCount] = useState(0);
+  const [wrongCount, setWrongCount] = useState(0);
+  const [wrongWords, setWrongWords] = useState([]);
 
+  // Fetch cards on mount and when level/order changes
   useEffect(() => {
-    if (!mode) {
-      setLoading(false);
-      return;
-    }
-    
     const fetchCards = async () => {
       setLoading(true);
       try {
         let data = [];
-        if (mode === 'review') {
+        // Try to get due review cards first
+        try {
           const res = await client.get('/learning/due');
           data = Array.isArray(res.data) ? res.data : [];
-        }
-        
+        } catch (e) {}
+
+        // If no due cards, get new words
         if (data.length === 0) {
-          const newRes = await client.get('/learning/new-words?count=10');
+          const newRes = await client.get('/learning/new-words?count=20');
           data = Array.isArray(newRes.data) ? newRes.data : [];
         }
-        
+
+        // Filter by level if selected
+        if (selectedLevel && data.length > 0) {
+          data = data.filter(c => c.level === selectedLevel);
+        }
+
+        // Shuffle if needed
+        if (order === 'shuffle' && data.length > 0) {
+          data = [...data].sort(() => Math.random() - 0.5);
+        }
+
         setCards(data);
-        // Auto-play first card audio
         if (data.length > 0) {
           setTimeout(() => speakRussian(data[0].word), 500);
         }
@@ -49,7 +58,7 @@ export default function FlashCard() {
       }
     };
     fetchCards();
-  }, [mode]);
+  }, [selectedLevel, order]);
 
   // Auto-play audio when card changes
   useEffect(() => {
@@ -61,97 +70,66 @@ export default function FlashCard() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
+      if (done || loading) return;
       if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault();
-        if (!flipped) {
-          setFlipped(true);
-        }
-      } else if (e.key === 'ArrowLeft' && flipped) {
+        setFlipped(f => !f);
+      } else if (e.key === 'ArrowLeft' || e.key === '1') {
         handleRate('again');
-      } else if (e.key === 'ArrowRight' && flipped) {
+      } else if (e.key === 'ArrowRight' || e.key === '2') {
         handleRate('good');
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [flipped, currentIndex, cards]);
+  }, [flipped, currentIndex, cards, done, loading]);
 
-  const handleRate = async (rating) => {
+  const handleRate = (rating) => {
+    if (cards.length === 0 || currentIndex >= cards.length) return;
     const card = cards[currentIndex];
+
+    // Track stats
+    if (rating === 'good') {
+      setCorrectCount(c => c + 1);
+    } else {
+      setWrongCount(w => w + 1);
+      setWrongWords(prev => [...prev, card]);
+    }
+
+    // Submit review
     try {
-      await client.post('/learning/review', {
+      client.post('/learning/review', {
         vocabId: card.vocabId || card.id,
         rating,
-      });
-    } catch (err) {}
+      }).catch(() => {});
+    } catch (e) {}
 
+    // Next card
     if (currentIndex < cards.length - 1) {
       setCurrentIndex(currentIndex + 1);
       setFlipped(false);
-      setDragX(0);
     } else {
       setDone(true);
     }
   };
 
-  // Touch/Mouse drag handlers
-  const handleDragStart = (e) => {
-    setIsDragging(true);
-    startXRef.current = e.touches ? e.touches[0].clientX : e.clientX;
-  };
-
-  const handleDragMove = (e) => {
-    if (!isDragging) return;
-    const currentX = e.touches ? e.touches[0].clientX : e.clientX;
-    const diff = currentX - startXRef.current;
-    setDragX(diff);
-  };
-
-  const handleDragEnd = () => {
-    setIsDragging(false);
-    const threshold = 100;
-    
-    if (dragX > threshold) {
-      // Swipe right = know
-      handleRate('good');
-    } else if (dragX < -threshold) {
-      // Swipe left = don't know
-      handleRate('again');
-    }
-    setDragX(0);
-  };
-
-  if (!mode) {
+  if (loading) {
     return (
-      <div className="page">
-        <h1>🃏 闪卡背单词</h1>
-        <div className="mode-selection">
-          <div className="mode-card" onClick={() => setMode('review')}>
-            <div className="mode-icon">🔄</div>
-            <h3>复习卡片</h3>
-            <p>复习已学过的单词</p>
-          </div>
-          <div className="mode-card" onClick={() => setMode('new')}>
-            <div className="mode-icon">✨</div>
-            <h3>学习新词</h3>
-            <p>学习 10 个新单词</p>
-          </div>
-        </div>
+      <div className="fc-page">
+        <div className="fc-loading">加载中...</div>
       </div>
     );
   }
 
-  if (loading) return <div className="loading">加载中...</div>;
-
   if (cards.length === 0) {
     return (
-      <div className="page">
-        <div className="empty-state">
-          <h2>📭 暂无可学习的词汇</h2>
+      <div className="fc-page">
+        <div className="fc-empty">
+          <div className="fc-empty-icon">📭</div>
+          <h2>暂无可学习的词汇</h2>
           <p>请先浏览词汇库添加更多词汇</p>
-          <button className="btn btn-primary" onClick={() => setMode(null)}>
-            返回选择
+          <button className="fc-btn fc-btn-primary" onClick={() => navigate('/vocab')}>
+            浏览词汇库
           </button>
         </div>
       </div>
@@ -160,20 +138,44 @@ export default function FlashCard() {
 
   if (done) {
     return (
-      <div className="page">
-        <div className="empty-state">
-          <h2>🎉 全部完成！</h2>
-          <p>本次学习了 {cards.length} 个单词</p>
-          <div className="done-actions">
-            <button className="btn btn-primary" onClick={() => {
-              setMode(null);
-              setDone(false);
+      <div className="fc-page">
+        <div className="fc-done">
+          <div className="fc-done-icon">🎉</div>
+          <h2>全部完成！</h2>
+          <div className="fc-done-stats">
+            <div className="fc-done-stat fc-done-correct">
+              <span className="fc-done-stat-num">{correctCount}</span>
+              <span className="fc-done-stat-label">认识</span>
+            </div>
+            <div className="fc-done-stat fc-done-wrong">
+              <span className="fc-done-stat-num">{wrongCount}</span>
+              <span className="fc-done-stat-label">不认识</span>
+            </div>
+          </div>
+          {wrongWords.length > 0 && (
+            <div className="fc-done-wrong-list">
+              <h3>需要复习的词</h3>
+              <div className="fc-done-wrong-words">
+                {wrongWords.map((w, i) => (
+                  <span key={i} className="fc-done-wrong-word" onClick={() => speakRussian(w.word)}>
+                    {w.word}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="fc-done-actions">
+            <button className="fc-btn fc-btn-primary" onClick={() => {
               setCurrentIndex(0);
               setFlipped(false);
+              setDone(false);
+              setCorrectCount(0);
+              setWrongCount(0);
+              setWrongWords([]);
             }}>
-              继续学习
+              再来一轮
             </button>
-            <button className="btn btn-secondary" onClick={() => navigate('/vocab')}>
+            <button className="fc-btn fc-btn-secondary" onClick={() => navigate('/vocab')}>
               浏览词汇库
             </button>
           </div>
@@ -184,79 +186,104 @@ export default function FlashCard() {
 
   const card = cards[currentIndex];
   const progress = ((currentIndex + 1) / cards.length) * 100;
-  const rotation = dragX * 0.1;
-  const opacity = 1 - Math.abs(dragX) / 300;
 
   return (
-    <div className="page">
-      <h1>🃏 闪卡背单词</h1>
-
-      <div className="progress-bar-container">
-        <div className="progress-bar" style={{ width: `${progress}%` }} />
-      </div>
-      <p className="progress-text">{currentIndex + 1} / {cards.length}</p>
-
-      <div className="flashcard-area">
-        {/* Swipe indicator */}
-        {isDragging && (
-          <div className={`swipe-indicator ${dragX > 0 ? 'swipe-right' : 'swipe-left'}`}>
-            {dragX > 0 ? '✅ 认识' : '❌ 不认识'}
-          </div>
-        )}
-
-        <div 
-          ref={cardRef}
-          className={`flashcard-container ${isDragging ? 'dragging' : ''}`}
-          style={{ 
-            transform: `translateX(${dragX}px) rotate(${rotation}deg)`,
-            opacity: opacity
-          }}
-          onClick={() => !isDragging && setFlipped(!flipped)}
-          onMouseDown={handleDragStart}
-          onMouseMove={handleDragMove}
-          onMouseUp={handleDragEnd}
-          onMouseLeave={() => { if (isDragging) handleDragEnd(); }}
-          onTouchStart={handleDragStart}
-          onTouchMove={handleDragMove}
-          onTouchEnd={handleDragEnd}
+    <div className="fc-page">
+      {/* Level selector */}
+      <div className="fc-levels">
+        <button
+          className={`fc-level-btn ${selectedLevel === null ? 'active' : ''}`}
+          onClick={() => setSelectedLevel(null)}
         >
-          <div className={`flashcard ${flipped ? 'flipped' : ''}`}>
-            <div className="flashcard-front">
+          全部
+        </button>
+        {LEVELS.map(l => (
+          <button
+            key={l}
+            className={`fc-level-btn ${selectedLevel === l ? 'active' : ''}`}
+            onClick={() => setSelectedLevel(l)}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {/* Order toggle */}
+      <div className="fc-order">
+        <button
+          className={`fc-order-btn ${order === 'sequential' ? 'active' : ''}`}
+          onClick={() => setOrder('sequential')}
+        >
+          📌 顺序
+        </button>
+        <button
+          className={`fc-order-btn ${order === 'shuffle' ? 'active' : ''}`}
+          onClick={() => setOrder('shuffle')}
+        >
+          🔀 随机
+        </button>
+      </div>
+
+      {/* Progress */}
+      <div className="fc-progress-area">
+        <div className="fc-progress-bar-wrap">
+          <div className="fc-progress-bar" style={{ width: `${progress}%` }} />
+        </div>
+        <div className="fc-progress-info">
+          <span className="fc-progress-count">{currentIndex + 1} / {cards.length}</span>
+          <span className="fc-progress-correct">✓ {correctCount}</span>
+          <span className="fc-progress-wrong">✗ {wrongCount}</span>
+        </div>
+      </div>
+
+      {/* Card */}
+      <div className="fc-card-area">
+        <div
+          className={`fc-card-wrapper ${flipped ? 'flipped' : ''}`}
+          onClick={() => setFlipped(!flipped)}
+        >
+          <div className="fc-card">
+            {/* Front: word + stress */}
+            <div className="fc-card-front">
+              {card.level && <span className="fc-card-level">{card.level}</span>}
               <button
-                className="btn btn-icon tts-btn"
+                className="fc-card-tts"
                 onClick={(e) => { e.stopPropagation(); speakRussian(card.word); }}
                 title="听发音"
               >
                 🔊
               </button>
-              <h2 className="flashcard-word">{card.word}</h2>
+              <div className="fc-card-word">{card.word}</div>
               {card.stress && card.stress !== card.word && (
-                <p className="flashcard-stress">{card.stress}</p>
+                <div className="fc-card-stress">{card.stress}</div>
               )}
-              <p className="flashcard-hint">点击翻转 · 左滑不认识 · 右滑认识</p>
             </div>
-            <div className="flashcard-back">
-              <h2 className="flashcard-word">{card.word}</h2>
-              {card.chinese && <p className="flashcard-chinese">{card.chinese}</p>}
-              {card.pos && <p className={`flashcard-pos ${getPOSClass(card.pos)}`}>词性: {translatePOS(card.pos)}</p>}
-              {card.level && <p className="flashcard-level">级别: {card.level}</p>}
+            {/* Back: chinese + pos */}
+            <div className="fc-card-back">
+              <div className="fc-card-chinese">{card.chinese}</div>
+              {card.pos && (
+                <span className={`fc-card-pos ${getPOSClass(card.pos)}`}>
+                  {translatePOS(card.pos)}
+                </span>
+              )}
+              {card.level && <span className="fc-card-level-back">{card.level}</span>}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="rating-buttons">
-        <button className="btn btn-danger btn-large" onClick={() => handleRate('again')}>
-          ❌ 不认识
-          <span className="rating-hint">← 左滑</span>
+      {/* Rating buttons */}
+      <div className="fc-rating">
+        <button className="fc-btn fc-btn-wrong" onClick={() => handleRate('again')}>
+          ✗ 不认识
         </button>
-        <button className="btn btn-success btn-large" onClick={() => handleRate('good')}>
-          ✅ 认识
-          <span className="rating-hint">右滑 →</span>
+        <button className="fc-btn fc-btn-right" onClick={() => handleRate('good')}>
+          ✓ 认识
         </button>
       </div>
 
-      <div className="keyboard-hint">
+      {/* Keyboard hint */}
+      <div className="fc-hint">
         <span>空格 翻转</span>
         <span>← 不认识</span>
         <span>→ 认识</span>
