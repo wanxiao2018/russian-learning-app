@@ -113,8 +113,17 @@ export default function VocabDetail() {
             <div className="sentences-list">
               {word.sentences.map((s, i) => (
                 <div key={i} className="sentence-card">
-                  <div className="sentence-ru">{s.ru}</div>
-                  <div className="sentence-cn">{s.cn}</div>
+                  <div className="sentence-row">
+                    <button
+                      className="sentence-tts-btn"
+                      onClick={() => speakRussian(s.ru)}
+                      title="播放例句"
+                    >🔊</button>
+                    <div className="sentence-texts">
+                      <div className="sentence-ru">{s.ru}</div>
+                      {s.cn && <div className="sentence-cn">{s.cn}</div>}
+                    </div>
+                  </div>
                   {s.episodeNumber && (
                     <div className="sentence-source">RRS #{s.episodeNumber}</div>
                   )}
